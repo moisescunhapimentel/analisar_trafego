@@ -48,6 +48,19 @@ def tratar_pacote(plen, t, buf):
                 arquivo_log.write(f"{datetime.fromtimestamp(t)} | [HTTPS] {ip_src} -> {ip_dst}\n")
                 arquivo_log.flush()
 
+            elif dport == 25:  # SMTP não criptografado
+                print(f"\n[SMTP] {datetime.fromtimestamp(t)}")
+                print(f"  {ip_src}:{tcp.sport} → {ip_dst}:{tcp.dport}")
+                
+                try:
+                    smtp_data = tcp.data.decode("utf-8", errors="ignore")
+                    print(f"  Conteúdo SMTP: {smtp_data}")
+                except Exception as e:
+                    smtp_data = tcp.data.hex()
+                    print(f"  Conteúdo SMTP (hex): {smtp_data} (erro: {e})")
+                
+                arquivo_log.write(f"{datetime.fromtimestamp(t)} | [SMTP] {ip_src}:{tcp.sport} -> {ip_dst}:{tcp.dport} | Conteúdo: {smtp_data}\n")
+                arquivo_log.flush()
             else:
                 print(f"\n[TCP] {datetime.fromtimestamp(t)}")
                 print(f"  {ip_src}:{tcp.sport} → {ip_dst}:{tcp.dport}")
@@ -97,6 +110,8 @@ def tratar_pacote(plen, t, buf):
             arquivo_log.write(conteudo_str)
             arquivo_log.flush()
 
+        #SMTP
+
         # else:
         #     print(f"\n[OUTRO] {datetime.fromtimestamp(t)}")
         #     print(f"  {ip_src} → {ip_dst}")
@@ -120,5 +135,5 @@ def iniciar_sniffer(interface):
 
 
 if __name__ == "__main__":
-    interface = "enp42s0"
+    interface = "lo"
     iniciar_sniffer(interface)
