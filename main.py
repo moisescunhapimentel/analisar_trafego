@@ -56,17 +56,52 @@ def tratar_pacote(plen, t, buf):
 
         elif isinstance(ip.data, dpkt.udp.UDP):
             udp = ip.data
+            data = udp.data
 
             print(f"\n[UDP] {datetime.fromtimestamp(t)}")
             print(f"  {ip_src}:{udp.sport} → {ip_dst}:{udp.dport}")
-            arquivo_log.write(f"{datetime.fromtimestamp(t)} | [UDP] {ip_src}:{udp.sport} -> {ip_dst}:{udp.dport}\n")
+            print(f"  Tamanho do payload: {len(data)} bytes")
+
+            conteudo_str = ""
+
+            # Verifica se é DNS (porta 53)
+            if udp.sport == 53 or udp.dport == 53:
+                try:
+                    dns = dpkt.dns.DNS(data)
+                    if dns.qr == dpkt.dns.DNS_Q:  # Query
+                        perguntas = ", ".join(q.name for q in dns.qd)
+                        print(f"  [DNS] Consulta para: {perguntas}")
+                        conteudo_str = f"[DNS Query] {perguntas}"
+                    elif dns.qr == dpkt.dns.DNS_R:  # Resposta
+                        respostas = ", ".join(rr.name for rr in dns.an)
+                        print(f"  [DNS] Resposta para: {respostas}")
+                        conteudo_str = f"[DNS Response] {respostas}"
+                    else:
+                        conteudo_str = "[DNS] Pacote DNS não identificado"
+                except Exception as e:
+                    print(f"  [DNS] Erro ao decodificar DNS: {e}")
+                    conteudo_str = "[DNS] Erro ao decodificar"
+            else:
+                # Tenta decodificar genericamente
+                if data:
+                    try:
+                        texto = data.decode("utf-8", errors="ignore")
+                        print(f"  Conteúdo (UTF-8): {texto}")
+                        conteudo_str = texto.replace("\n", "\\n").replace("\r", "\\r")
+                    except Exception:
+                        conteudo_str = data.hex()
+                        print(f"  Conteúdo (hex): {conteudo_str}")
+                else:
+                    conteudo_str = "[sem dados]"
+            
+            arquivo_log.write(conteudo_str)
             arquivo_log.flush()
 
-        else:
-            print(f"\n[OUTRO] {datetime.fromtimestamp(t)}")
-            print(f"  {ip_src} → {ip_dst}")
-            arquivo_log.write(f"{datetime.fromtimestamp(t)} | [OUTRO] {ip_src} -> {ip_dst}\n")
-            arquivo_log.flush()
+        # else:
+        #     print(f"\n[OUTRO] {datetime.fromtimestamp(t)}")
+        #     print(f"  {ip_src} → {ip_dst}")
+        #     arquivo_log.write(f"{datetime.fromtimestamp(t)} | [OUTRO] {ip_src} -> {ip_dst}\n")
+        #     arquivo_log.flush()
 
 
 
@@ -85,5 +120,5 @@ def iniciar_sniffer(interface):
 
 
 if __name__ == "__main__":
-    interface = ""
+    interface = "enp42s0"
     iniciar_sniffer(interface)
