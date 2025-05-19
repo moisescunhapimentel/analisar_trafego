@@ -6,6 +6,21 @@ from datetime import datetime
 req_por_ip = {}
 arquivo_log = open("log_pacotes.txt", "a")
 
+def tcp_flags_para_texto(flags: int) -> str:
+    nomes_flags = {
+        dpkt.tcp.TH_FIN: "FIN",
+        dpkt.tcp.TH_SYN: "SYN",
+        dpkt.tcp.TH_RST: "RST",
+        dpkt.tcp.TH_PUSH: "PSH",
+        dpkt.tcp.TH_ACK: "ACK",
+        dpkt.tcp.TH_URG: "URG",
+        dpkt.tcp.TH_ECE: "ECE",
+        dpkt.tcp.TH_CWR: "CWR",
+        dpkt.tcp.TH_NS: "NS", 
+    }
+
+    ativadas = [nome for bit, nome in nomes_flags.items() if flags & bit]
+    return "|".join(ativadas) if ativadas else "Nenhuma"
 
 def tratar_pacote(plen, t, buf):
     try:
@@ -21,6 +36,10 @@ def tratar_pacote(plen, t, buf):
         if isinstance(ip.data, dpkt.tcp.TCP):
             tcp = ip.data
             dport = tcp.dport
+
+            print(f"  Flags: {tcp.flags} -  {tcp_flags_para_texto(tcp.flags)}")
+            print(f"  Seq: {tcp.seq}  Ack: {tcp.ack}")
+            print(f"  Payload len: {len(tcp.data)}")
 
             if dport == 80:
                 if len(tcp.data) == 0:
@@ -48,7 +67,7 @@ def tratar_pacote(plen, t, buf):
                 arquivo_log.write(f"{datetime.fromtimestamp(t)} | [HTTPS] {ip_src} -> {ip_dst}\n")
                 arquivo_log.flush()
 
-            elif dport == 25:  # SMTP não criptografado
+            elif dport == 25:  
                 print(f"\n[SMTP] {datetime.fromtimestamp(t)}")
                 print(f"  {ip_src}:{tcp.sport} → {ip_dst}:{tcp.dport}")
                 
@@ -73,6 +92,8 @@ def tratar_pacote(plen, t, buf):
 
             print(f"\n[UDP] {datetime.fromtimestamp(t)}")
             print(f"  {ip_src}:{udp.sport} → {ip_dst}:{udp.dport}")
+            print(f"  UDP Length: {udp.ulen} bytes")
+            print(f"  UDP Checksum: {udp.sum}")
             print(f"  Tamanho do payload: {len(data)} bytes")
 
             conteudo_str = ""
@@ -95,7 +116,6 @@ def tratar_pacote(plen, t, buf):
                     print(f"  [DNS] Erro ao decodificar DNS: {e}")
                     conteudo_str = "[DNS] Erro ao decodificar"
             else:
-                # Tenta decodificar genericamente
                 if data:
                     try:
                         texto = data.decode("utf-8", errors="ignore")
@@ -109,16 +129,6 @@ def tratar_pacote(plen, t, buf):
             
             arquivo_log.write(conteudo_str)
             arquivo_log.flush()
-
-        #SMTP
-
-        # else:
-        #     print(f"\n[OUTRO] {datetime.fromtimestamp(t)}")
-        #     print(f"  {ip_src} → {ip_dst}")
-        #     arquivo_log.write(f"{datetime.fromtimestamp(t)} | [OUTRO] {ip_src} -> {ip_dst}\n")
-        #     arquivo_log.flush()
-
-
 
     except Exception as e:
         print(f"Erro ao processar pacote: {e}")
@@ -135,5 +145,5 @@ def iniciar_sniffer(interface):
 
 
 if __name__ == "__main__":
-    interface = "lo"
+    interface = "enp42s0"
     iniciar_sniffer(interface)
